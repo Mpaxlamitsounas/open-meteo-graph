@@ -1,0 +1,8 @@
+.vscode
+bin
+include
+lib
+lib64
+share
+.cache.sqlite
+display_24_personal.py
