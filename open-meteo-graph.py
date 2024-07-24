@@ -116,6 +116,6 @@ plt.ylim([low_lim, high_lim])
 plt.yticks(y_ticks)
 plt.ylabel('°C')
 
-plt.legend(loc='upper right')
+plt.legend()
 plt.tight_layout()
 plt.show()
