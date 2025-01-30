@@ -14,30 +14,48 @@ from numpy import ndarray
 
 url = "https://api.open-meteo.com/v1/forecast"
 
-params = [{
-    "latitude": 34.3434,
-    "longitude": -4.44,
-    "hourly": "temperature_2m",
-    "timezone": "auto",
-    "past_days": 1,
-    "forecast_days": 3
+hourly_metrics = "temperature_2m"
+timezone = "auto"
+past_days = 1
+forecast_days = 3
+
+colours = iter(["#2caffe", "#ffa808", "#35b035"])
+
+entries = [{
+    "name": "Example 1",
+    "colour": next(colours),
+    "params": {
+        "latitude": 34.3434,
+        "longitude": -4.44,
+    }
 }, {
-    "latitude": 2.22,
-    "longitude": 11.1111,
-    "hourly": "temperature_2m",
-    "timezone": "auto",
-    "past_days": 1,
-    "forecast_days": 3
+    "name": "Example 2",
+    "colour": next(colours),
+    "params": {
+        "latitude": 2.22,
+        "longitude": 11.1111,
+    }
+}, {
+    "name": "Example 3",
+    "colour": next(colours),
+    "params": {
+        "latitude": 1.234,
+        "longitude": -4.321,
+    }
 }]
-location_names = ["Example 1", "Example 2"]
-colours = ["#2caffe", "#ffa808"]
+
+for entry in entries:
+    entry["params"]["hourly"] = hourly_metrics
+    entry["params"]["timezone"] = timezone
+    entry["params"]["past_days"] = past_days
+    entry["params"]["forecast_days"] = forecast_days
 
 
-def get_data(params) -> WeatherApiResponse:
+def get_data(entries) -> WeatherApiResponse:
     cache_session = requests_cache.CachedSession('.cache', expire_after=3600)
     retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
     openmeteo = openmeteo_requests.Client(session=retry_session)
-    return openmeteo.weather_api(url, params=params)[0]
+    return openmeteo.weather_api(url, params=entries["params"])[0]
 
 
 def get_offset_time(now_dec: float) -> int:
@@ -50,14 +68,15 @@ def get_offset_time(now_dec: float) -> int:
 
 
 def make_x_ticks(offset: int) -> list[str]:
-    return [(datetime.today() + timedelta(days=-1, hours=hour)).strftime('%d %b') if hour % 24 == 0
-            else f'{hour % 24}:00' if hour % 2 == 0
-            else ''
+    return [(datetime.today() +
+             timedelta(days=-1, hours=hour)).strftime('%d %b') if hour %
+            24 == 0 else f'{hour % 24}:00' if hour % 2 == 0 else ''
             for hour in range(offset, hours + offset)]
 
 
 def get_temp(response: WeatherApiResponse, offset: int) -> list[float]:
-    return [temp for temp in response.Hourly().Variables(0).ValuesAsNumpy()][offset:hours + offset]  # type: ignore
+    return [temp for temp in response.Hourly().Variables(0).ValuesAsNumpy()
+            ][offset:hours + offset]  # type: ignore
 
 
 def get_y_tick_spacing(temp: list[float]) -> float:
@@ -103,26 +122,27 @@ tick_spacing = 0
 low_lim = 10000  # if your location exceeds this you have bigger problems
 high_lim = -10000
 
-for i in range(min(len(params), len(location_names))):
-
-    response = get_data(params[i])
+for entry in entries:
+    response = get_data(entry)
 
     y_temp = get_temp(response, offset)
     tick_spacing = max(tick_spacing, get_y_tick_spacing(y_temp))
     low_lim = min(low_lim, round_with_precision(min(y_temp), tick_spacing))
-    high_lim = max(high_lim, round_with_precision(max(y_temp), tick_spacing) + tick_spacing)
+    high_lim = max(
+        high_lim,
+        round_with_precision(max(y_temp), tick_spacing) + tick_spacing)
 
     plt.plot(x_time,
              y_temp,
-             color=colours[i],
+             color=entry["colour"],
              marker='o',
              linewidth=1,
-             label=location_names[i])
+             label=entry["name"])
 
 y_ticks = make_y_ticks(low_lim, high_lim, tick_spacing)
 high_lim += 0.001 * tick_spacing
 
-plt.axvline(now_dec + 24 if (offset != 0 and now_dec < 24)else now_dec,
+plt.axvline(now_dec + 24 if (offset != 0 and now_dec < 24) else now_dec,
             color='#646464',
             marker='|',
             linewidth=1)
